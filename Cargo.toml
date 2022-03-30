@@ -1,0 +1,11 @@
+[package]
+name = "bevy_sentry"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.6.1", default-features = false }
+sentry = "0.25.0"
+
+[dev-dependencies]
+bevy = "0.6.1"
