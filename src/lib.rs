@@ -14,10 +14,11 @@
 //!         .insert_resource(SentryConfig::from_options((
 //!             "https://examplePublicKey@o0.ingest.sentry.io/0",
 //!             ClientOptions {
-//!             release: release_name!(),
-//!             ..Default::default()
-//!         },
-//!     )));
+//!                 release: release_name!(),
+//!                 ..Default::default()
+//!             },
+//!         ))
+//!     );
 //!     SentryIntegration::new()
 //!         .build(&mut app);
 //! #   app.set_runner(|mut app| app.schedule.run(&mut app.world));
@@ -28,13 +29,13 @@
 #![forbid(unsafe_code)]
 #![warn(unused_imports, missing_docs)]
 
+/// Reexported sentry crate
 pub use sentry::*;
 
 use bevy::app::App;
 use bevy::ecs::system::Resource;
 use bevy::log::error;
 use bevy::prelude::{Res, SystemSet};
-use sentry::protocol::Value;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
@@ -82,7 +83,7 @@ impl SentryIntegration {
                     for context in self.initial_contexts {
                         scope.set_context(
                             context.get_key(),
-                            sentry::protocol::Context::Other(*context.get_context().clone()),
+                            protocol::Context::Other(*context.get_context().clone()),
                         );
                     }
                 });
