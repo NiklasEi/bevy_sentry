@@ -1,5 +1,7 @@
 use bevy::prelude::*;
-use bevy_sentry::{release_name, ClientOptions, SentryConfig, SentryContext, SentryIntegration};
+use bevy_sentry::{
+    release_name, ClientOptions, SentryApp, SentryConfig, SentryContext, SentryPlugin,
+};
 use std::collections::BTreeMap;
 
 fn main() {
@@ -12,7 +14,7 @@ fn main() {
                 ..Default::default()
             },
         )));
-    SentryIntegration::new()
+    app.add_plugin(SentryPlugin)
         .register_context(Some(SentryContext::<CharacterContext>::new("Character", {
             let mut context = BTreeMap::new();
             context.insert("name".to_owned(), "Nikl".into());
@@ -20,8 +22,8 @@ fn main() {
 
             context
         })))
-        .build(&mut app);
-    app.add_system(cause_panic).run();
+        .add_system(cause_panic)
+        .run();
 }
 
 struct CharacterContext;

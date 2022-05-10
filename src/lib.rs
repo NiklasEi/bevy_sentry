@@ -2,27 +2,25 @@
 //!
 //! ```
 //! # use bevy::prelude::*;
-//! # use bevy_sentry::{release_name, ClientOptions, SentryConfig, SentryIntegration};
+//! # use bevy_sentry::{release_name, ClientOptions, SentryConfig, SentryPlugin};
 //! # use sentry::types::Dsn;
 //! # use std::str::FromStr;
 //! fn main() {
 //!     let mut app = App::new();
-//! # /*
+//! #    /*
 //!     app.add_plugins(DefaultPlugins)
-//! # */
-//! #   app.add_plugins(MinimalPlugins)
-//!         .insert_resource(SentryConfig::from_options((
+//! #    */
+//! #    app.add_plugins(MinimalPlugins)
+//!     app.insert_resource(SentryConfig::from_options((
 //!             "https://examplePublicKey@o0.ingest.sentry.io/0",
 //!             ClientOptions {
 //!                 release: release_name!(),
 //!                 ..Default::default()
 //!             },
-//!         ))
-//!     );
-//!     SentryIntegration::new()
-//!         .build(&mut app);
-//! #   app.set_runner(|mut app| app.schedule.run(&mut app.world));
-//!     app.run();
+//!         )))
+//!         .add_plugin(SentryPlugin)
+//! #        .set_runner(|mut app| app.schedule.run(&mut app.world))
+//!         .run();
 //! }
 //! ```
 
@@ -32,66 +30,57 @@
 /// Reexported sentry crate
 pub use sentry::*;
 
-use bevy::app::App;
+use bevy::app::{App, Plugin};
 use bevy::ecs::system::Resource;
 use bevy::log::error;
 use bevy::prelude::{Res, SystemSet};
+use sentry::protocol::Value;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
 /// [Sentry.io](https://sentry.io) integration for Bevy applications
-pub struct SentryIntegration {
-    systems: SystemSet,
-    initial_contexts: Vec<Box<dyn DynamicSentryContext>>,
-}
+pub struct SentryPlugin;
 
-impl SentryIntegration {
-    /// Create a new sentry plugin instance
-    pub fn new() -> Self {
-        SentryIntegration {
-            systems: SystemSet::new(),
-            initial_contexts: vec![],
-        }
-    }
-
-    /// Register a new Sentry context
-    ///
-    /// If you pass an initial value, it will be configures as soon as Sentry is initialized.
-    /// You can later update the context by changing the resource `SentryContext<T>`
-    pub fn register_context<T: Resource>(
-        mut self,
-        initial_value: Option<SentryContext<T>>,
-    ) -> Self {
-        self.systems = self.systems.with_system(set_sentry_context::<T>);
-        if let Some(context) = initial_value {
-            self.initial_contexts.push(Box::new(context));
-        }
-
-        self
-    }
-
-    /// Finish configuring the [`SentryIntegration`]
-    ///
-    /// Calling this function is required to set up the asset loading.
-    pub fn build(self, app: &mut App) {
+impl Plugin for SentryPlugin {
+    fn build(&self, app: &mut App) {
         if let Some(configuration) = app.world.remove_resource::<SentryConfig>() {
             app.insert_resource(Sentry {
                 guard: init(configuration.options),
             });
-            if !self.initial_contexts.is_empty() {
-                configure_scope(|scope| {
-                    for context in self.initial_contexts {
-                        scope.set_context(
-                            context.get_key(),
-                            protocol::Context::Other(*context.get_context().clone()),
-                        );
-                    }
-                });
-            }
-            app.add_system_set(self.systems);
         } else {
             error!("Please supply a `SentryConfig` as resource");
         }
+    }
+}
+
+/// App extension trait for sentry integration
+pub trait SentryApp {
+    fn register_context<T: Resource>(
+        &mut self,
+        initial_value: Option<SentryContext<T>>,
+    ) -> &mut Self;
+}
+
+impl SentryApp for App {
+    /// Register a new Sentry context
+    ///
+    /// If you pass an initial value, it will be configures as soon as Sentry is initialized.
+    /// You can later update the context by changing the resource `SentryContext<T>`
+    fn register_context<T: Resource>(
+        &mut self,
+        initial_value: Option<SentryContext<T>>,
+    ) -> &mut Self {
+        self.add_system(set_sentry_context::<T>);
+        if let Some(context) = initial_value {
+            configure_scope(|scope| {
+                scope.set_context(
+                    context.get_key(),
+                    protocol::Context::Other(*context.get_context().clone()),
+                );
+            });
+        }
+
+        self
     }
 }
 
